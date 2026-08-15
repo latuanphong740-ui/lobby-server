@@ -28,15 +28,24 @@ wss.on("connection", (socket) => {
         try {
             const data = JSON.parse(message);
 
+            // =========================
+            // CREATE LOBBY
+            // =========================
             if (data.type === "create_lobby") {
                 const code = generateCode();
 
                 lobbies.set(code, {
                     host: socket,
-                    players: [socket]
+                    players: [
+                        {
+                            socket: socket,
+                            name: data.player_name || "Player"
+                        }
+                    ]
                 });
 
                 socket.lobbyCode = code;
+                socket.playerName = data.player_name || "Player";
 
                 socket.send(JSON.stringify({
                     type: "lobby_created",
@@ -44,8 +53,12 @@ wss.on("connection", (socket) => {
                 }));
 
                 console.log("LOBBY CREATED:", code);
+                console.log("HOST:", data.player_name || "Player");
             }
 
+            // =========================
+            // JOIN LOBBY
+            // =========================
             if (data.type === "join_lobby") {
                 const code = data.lobby_code?.toUpperCase();
                 const lobby = lobbies.get(code);
@@ -68,31 +81,55 @@ wss.on("connection", (socket) => {
                     return;
                 }
 
-                lobby.players.push(socket);
-                socket.lobbyCode = code;
+                const playerName = data.player_name || "Player";
 
-                // Báo cho những người đã ở trong lobby
+                // Thêm người chơi mới
+                lobby.players.push({
+                    socket: socket,
+                    name: playerName
+                });
+
+                socket.lobbyCode = code;
+                socket.playerName = playerName;
+
+                // =========================
+                // BÁO CHO NGƯỜI ĐÃ Ở TRONG LOBBY
+                // =========================
                 for (const player of lobby.players) {
-                    if (player !== socket && player.readyState === WebSocket.OPEN) {
-                        player.send(JSON.stringify({
+                    if (
+                        player.socket !== socket &&
+                        player.socket.readyState === WebSocket.OPEN
+                    ) {
+                        player.socket.send(JSON.stringify({
                             type: "player_joined",
                             lobby_code: code,
-                            player_name: data.player_name || "Player"
+                            player_name: playerName
                         }));
                     }
                 }
 
-                // Báo cho người vừa JOIN
+                // =========================
+                // GỬI DANH SÁCH NGƯỜI ĐÃ CÓ
+                // CHO NGƯỜI VỪA JOIN
+                // =========================
+                const playersList = lobby.players.map((player) => {
+                    return {
+                        name: player.name
+                    };
+                });
+
                 socket.send(JSON.stringify({
                     type: "join_success",
-                    lobby_code: code
+                    lobby_code: code,
+                    players: playersList
                 }));
 
                 console.log("PLAYER JOINED:", code);
-                console.log("PLAYER NAME:", data.player_name || "Player");
+                console.log("PLAYER NAME:", playerName);
             }
         } catch (error) {
             console.log("INVALID MESSAGE");
+            console.log(error);
         }
     });
 
