@@ -36,25 +36,31 @@ wss.on("connection", (socket) => {
 
                 lobbies.set(code, {
                     host: socket,
+
                     players: [
                         {
                             socket: socket,
-                            name: data.player_name || "Player"
+                            name: data.player_name || "Player",
+                            role: "HOST"
                         }
                     ]
                 });
 
                 socket.lobbyCode = code;
                 socket.playerName = data.player_name || "Player";
+                socket.role = "HOST";
 
                 socket.send(JSON.stringify({
                     type: "lobby_created",
-                    lobby_code: code
+                    lobby_code: code,
+                    player_name: socket.playerName,
+                    role: "HOST"
                 }));
 
                 console.log("LOBBY CREATED:", code);
-                console.log("HOST:", data.player_name || "Player");
+                console.log("HOST:", socket.playerName);
             }
+
 
             // =========================
             // JOIN LOBBY
@@ -83,14 +89,19 @@ wss.on("connection", (socket) => {
 
                 const playerName = data.player_name || "Player";
 
-                // Thêm người chơi mới
+                // =========================
+                // THÊM PLAYER
+                // =========================
                 lobby.players.push({
                     socket: socket,
-                    name: playerName
+                    name: playerName,
+                    role: "PLAYER"
                 });
 
                 socket.lobbyCode = code;
                 socket.playerName = playerName;
+                socket.role = "PLAYER";
+
 
                 // =========================
                 // BÁO CHO NGƯỜI ĐÃ Ở TRONG LOBBY
@@ -103,18 +114,20 @@ wss.on("connection", (socket) => {
                         player.socket.send(JSON.stringify({
                             type: "player_joined",
                             lobby_code: code,
-                            player_name: playerName
+                            player_name: playerName,
+                            role: "PLAYER"
                         }));
                     }
                 }
 
+
                 // =========================
-                // GỬI DANH SÁCH NGƯỜI ĐÃ CÓ
-                // CHO NGƯỜI VỪA JOIN
+                // GỬI DANH SÁCH CHO NGƯỜI VỪA JOIN
                 // =========================
                 const playersList = lobby.players.map((player) => {
                     return {
-                        name: player.name
+                        name: player.name,
+                        role: player.role
                     };
                 });
 
@@ -133,6 +146,10 @@ wss.on("connection", (socket) => {
         }
     });
 
+
+    // =========================
+    // DISCONNECT
+    // =========================
     socket.on("close", () => {
         console.log("PLAYER DISCONNECTED");
     });
