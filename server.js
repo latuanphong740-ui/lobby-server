@@ -44,6 +44,18 @@ wss.on("connection", (socket) => {
                 }));
 
                 console.log("LOBBY CREATED:", code);
+
+                // TEST PLAYER
+                setTimeout(() => {
+                    if (socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify({
+                            type: "player_joined",
+                            lobby_code: code
+                        }));
+
+                        console.log("TEST PLAYER JOINED:", code);
+                    }
+                }, 2000);
             }
 
             if (data.type === "join_lobby") {
