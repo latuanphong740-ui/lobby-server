@@ -71,6 +71,17 @@ wss.on("connection", (socket) => {
                 lobby.players.push(socket);
                 socket.lobbyCode = code;
 
+                // Báo cho những người đã ở trong lobby
+                for (const player of lobby.players) {
+                    if (player !== socket && player.readyState === WebSocket.OPEN) {
+                        player.send(JSON.stringify({
+                            type: "player_joined",
+                            lobby_code: code
+                        }));
+                    }
+                }
+
+                // Báo cho người vừa JOIN
                 socket.send(JSON.stringify({
                     type: "join_success",
                     lobby_code: code
