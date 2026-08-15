@@ -76,7 +76,8 @@ wss.on("connection", (socket) => {
                     if (player !== socket && player.readyState === WebSocket.OPEN) {
                         player.send(JSON.stringify({
                             type: "player_joined",
-                            lobby_code: code
+                            lobby_code: code,
+                            player_name: data.player_name || "Player"
                         }));
                     }
                 }
@@ -88,6 +89,7 @@ wss.on("connection", (socket) => {
                 }));
 
                 console.log("PLAYER JOINED:", code);
+                console.log("PLAYER NAME:", data.player_name || "Player");
             }
         } catch (error) {
             console.log("INVALID MESSAGE");
