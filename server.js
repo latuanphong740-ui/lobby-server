@@ -38,6 +38,34 @@ function generateCode() {
 
 
 // ==================================================
+// SET HOST
+// ==================================================
+
+function setHost(lobby, newHost) {
+
+    if (!newHost) {
+        return;
+    }
+
+    lobby.host = newHost.socket;
+
+    for (const player of lobby.players) {
+
+        const isHost =
+            player.socket === newHost.socket;
+
+        player.is_host = isHost;
+        player.socket.isHost = isHost;
+    }
+
+    console.log(
+        "HOST UPDATED:",
+        newHost.name
+    );
+}
+
+
+// ==================================================
 // BROADCAST LOBBY
 // ==================================================
 
@@ -390,10 +418,6 @@ wss.on("connection", (socket) => {
                 );
 
 
-                // ------------------------------
-                // ĐỒNG BỘ TOÀN BỘ LOBBY
-                // ------------------------------
-
                 broadcastLobby(
                     lobby,
                     code
@@ -404,12 +428,6 @@ wss.on("connection", (socket) => {
 
             // ==================================================
             // CHANGE ROLE
-            //
-            // HOST có thể đổi:
-            //
-            // PLAYER -> SPECTATOR
-            // SPECTATOR -> PLAYER
-            // HOST cũng có thể đổi chính mình
             // ==================================================
 
             if (
@@ -448,9 +466,15 @@ wss.on("connection", (socket) => {
                 // ------------------------------
 
                 if (
-                    socket !==
-                    lobby.host
+                    lobby.host !==
+                    socket
                 ) {
+
+                    console.log(
+                        "CHANGE ROLE DENIED:",
+                        socket.playerName,
+                        "IS NOT HOST"
+                    );
 
                     socket.send(
                         JSON.stringify({
@@ -476,10 +500,6 @@ wss.on("connection", (socket) => {
                     data.role;
 
 
-                // ------------------------------
-                // KIỂM TRA ROLE
-                // ------------------------------
-
                 if (
                     newRole !== "PLAYER" &&
                     newRole !== "SPECTATOR"
@@ -500,10 +520,6 @@ wss.on("connection", (socket) => {
                     return;
                 }
 
-
-                // ------------------------------
-                // TÌM NGƯỜI CẦN ĐỔI
-                // ------------------------------
 
                 const targetPlayer =
                     lobby.players.find(
@@ -532,12 +548,37 @@ wss.on("connection", (socket) => {
 
 
                 // ------------------------------
-                // ĐỔI ROLE
+                // HOST KHÔNG MẤT QUYỀN HOST
                 // ------------------------------
+
+                if (
+                    targetPlayer.socket ===
+                    lobby.host &&
+                    newRole === "SPECTATOR"
+                ) {
+
+                    console.log(
+                        "HOST CANNOT BECOME SPECTATOR"
+                    );
+
+                    socket.send(
+                        JSON.stringify({
+
+                            type:
+                                "role_change_failed",
+
+                            reason:
+                                "HOST_CANNOT_BE_SPECTATOR"
+
+                        })
+                    );
+
+                    return;
+                }
+
 
                 targetPlayer.role =
                     newRole;
-
 
                 targetPlayer.socket.role =
                     newRole;
@@ -551,10 +592,6 @@ wss.on("connection", (socket) => {
                 );
 
 
-                // ------------------------------
-                // ĐỒNG BỘ
-                // ------------------------------
-
                 broadcastLobby(
                     lobby,
                     code
@@ -565,12 +602,6 @@ wss.on("connection", (socket) => {
 
             // ==================================================
             // KICK PLAYER
-            //
-            // HOST có thể kick:
-            //
-            // PLAYER
-            // SPECTATOR
-            // CHÍNH HOST
             // ==================================================
 
             if (
@@ -585,10 +616,6 @@ wss.on("connection", (socket) => {
                 const lobby =
                     lobbies.get(code);
 
-
-                // ------------------------------
-                // KHÔNG CÓ LOBBY
-                // ------------------------------
 
                 if (!lobby) {
 
@@ -608,14 +635,27 @@ wss.on("connection", (socket) => {
                 }
 
 
-                // ------------------------------
-                // CHỈ HOST ĐƯỢC KICK
-                // ------------------------------
+                // ==================================================
+                // KIỂM TRA HOST THỰC TẾ
+                // ==================================================
 
                 if (
-                    socket !==
-                    lobby.host
+                    lobby.host !==
+                    socket
                 ) {
+
+                    console.log(
+                        "KICK DENIED:",
+                        socket.playerName,
+                        "IS NOT CURRENT HOST"
+                    );
+
+                    console.log(
+                        "CURRENT HOST:",
+                        lobby.host
+                            ? lobby.host.playerName
+                            : "NONE"
+                    );
 
                     socket.send(
                         JSON.stringify({
@@ -636,10 +676,6 @@ wss.on("connection", (socket) => {
                 const targetName =
                     data.player_name;
 
-
-                // ------------------------------
-                // TÌM NGƯỜI BỊ KICK
-                // ------------------------------
 
                 const targetPlayer =
                     lobby.players.find(
@@ -671,185 +707,41 @@ wss.on("connection", (socket) => {
                     targetPlayer.socket;
 
 
-                const targetIsHost =
+                // ==================================================
+                // HOST KHÔNG ĐƯỢC KICK CHÍNH MÌNH
+                // ==================================================
+
+                if (
                     targetSocket ===
-                    lobby.host;
+                    lobby.host
+                ) {
 
+                    socket.send(
+                        JSON.stringify({
 
-                console.log(
-                    "KICK REQUEST:",
-                    targetPlayer.name
-                );
+                            type:
+                                "kick_failed",
 
+                            reason:
+                                "CANNOT_KICK_HOST"
 
-                // ==================================================
-                // HOST KICK CHÍNH MÌNH
-                // ==================================================
-
-                if (targetIsHost) {
-
-                    console.log(
-                        "HOST DANG KICK CHINH MINH"
+                        })
                     );
-
-
-                    // ------------------------------
-                    // XÓA HOST KHỎI LOBBY
-                    // ------------------------------
-
-                    lobby.players =
-                        lobby.players.filter(
-                            (player) =>
-                                player.socket !==
-                                targetSocket
-                        );
-
-
-                    // ==================================================
-                    // CÒN NGƯỜI
-                    // ==================================================
-
-                    if (
-                        lobby.players.length >
-                        0
-                    ) {
-
-                        const newHost =
-                            lobby.players[0];
-
-
-                        // ------------------------------
-                        // ĐẶT HOST MỚI
-                        // ------------------------------
-
-                        newHost.is_host =
-                            true;
-
-                        newHost.socket.isHost =
-                            true;
-
-                        lobby.host =
-                            newHost.socket;
-
-
-                        console.log(
-                            "NEW HOST:",
-                            newHost.name
-                        );
-
-
-                        // ------------------------------
-                        // BÁO HOST CŨ
-                        // ------------------------------
-
-                        if (
-                            targetSocket.readyState ===
-                            WebSocket.OPEN
-                        ) {
-
-                            targetSocket.send(
-                                JSON.stringify({
-
-                                    type:
-                                        "kicked_from_lobby",
-
-                                    reason:
-                                        "HOST_LEFT"
-
-                                })
-                            );
-
-                        }
-
-
-                        targetSocket.lobbyCode =
-                            null;
-
-                        targetSocket.isHost =
-                            false;
-
-
-                        targetSocket.role =
-                            "PLAYER";
-
-
-                        // ------------------------------
-                        // UPDATE LOBBY
-                        // ------------------------------
-
-                        broadcastLobby(
-                            lobby,
-                            code
-                        );
-
-
-                        console.log(
-                            "HOST CU DA ROI LOBBY"
-                        );
-
-                        console.log(
-                            "HOST MOI:",
-                            newHost.name
-                        );
-
-                    }
-
-
-                    // ==================================================
-                    // KHÔNG CÒN AI
-                    // ==================================================
-
-                    else {
-
-                        lobbies.delete(
-                            code
-                        );
-
-
-                        if (
-                            targetSocket.readyState ===
-                            WebSocket.OPEN
-                        ) {
-
-                            targetSocket.send(
-                                JSON.stringify({
-
-                                    type:
-                                        "kicked_from_lobby",
-
-                                    reason:
-                                        "LOBBY_EMPTY"
-
-                                })
-                            );
-
-                        }
-
-
-                        targetSocket.lobbyCode =
-                            null;
-
-                        targetSocket.isHost =
-                            false;
-
-                        targetSocket.role =
-                            "PLAYER";
-
-
-                        console.log(
-                            "LOBBY DELETED:",
-                            code
-                        );
-
-                    }
-
 
                     return;
                 }
 
 
+                console.log(
+                    "KICK REQUEST:",
+                    socket.playerName,
+                    "->",
+                    targetPlayer.name
+                );
+
+
                 // ==================================================
-                // HOST KICK NGƯỜI KHÁC
+                // XÓA PLAYER
                 // ==================================================
 
                 lobby.players =
@@ -860,9 +752,9 @@ wss.on("connection", (socket) => {
                     );
 
 
-                // ------------------------------
-                // XÓA THÔNG TIN LOBBY
-                // ------------------------------
+                // ==================================================
+                // XÓA THÔNG TIN TARGET
+                // ==================================================
 
                 targetSocket.lobbyCode =
                     null;
@@ -874,9 +766,9 @@ wss.on("connection", (socket) => {
                     "PLAYER";
 
 
-                // ------------------------------
-                // BÁO NGƯỜI BỊ KICK
-                // ------------------------------
+                // ==================================================
+                // GỬI KICKED
+                // ==================================================
 
                 if (
                     targetSocket.readyState ===
@@ -898,9 +790,9 @@ wss.on("connection", (socket) => {
                 }
 
 
-                // ------------------------------
-                // BÁO HOST KICK THÀNH CÔNG
-                // ------------------------------
+                // ==================================================
+                // BÁO HOST
+                // ==================================================
 
                 if (
                     socket.readyState ===
@@ -922,9 +814,9 @@ wss.on("connection", (socket) => {
                 }
 
 
-                // ------------------------------
-                // UPDATE LOBBY
-                // ------------------------------
+                // ==================================================
+                // UPDATE
+                // ==================================================
 
                 broadcastLobby(
                     lobby,
@@ -963,7 +855,8 @@ wss.on("connection", (socket) => {
     socket.on("close", () => {
 
         console.log(
-            "PLAYER DISCONNECTED"
+            "PLAYER DISCONNECTED:",
+            socket.playerName
         );
 
 
@@ -998,6 +891,12 @@ wss.on("connection", (socket) => {
             socket
         ) {
 
+            console.log(
+                "CURRENT HOST LEFT:",
+                socket.playerName
+            );
+
+
             lobby.players =
                 lobby.players.filter(
                     (player) =>
@@ -1006,9 +905,16 @@ wss.on("connection", (socket) => {
                 );
 
 
-            // ------------------------------
-            // CÒN NGƯỜI
-            // ------------------------------
+            socket.lobbyCode =
+                null;
+
+            socket.isHost =
+                false;
+
+
+            // ==================================================
+            // CÒN NGƯỜI -> CHỌN HOST MỚI
+            // ==================================================
 
             if (
                 lobby.players.length >
@@ -1019,20 +925,11 @@ wss.on("connection", (socket) => {
                     lobby.players[0];
 
 
-                newHost.is_host =
-                    true;
-
-                newHost.socket.isHost =
-                    true;
-
-
-                lobby.host =
-                    newHost.socket;
-
-
-                console.log(
-                    "HOST DISCONNECTED"
+                setHost(
+                    lobby,
+                    newHost
                 );
+
 
                 console.log(
                     "NEW HOST:",
@@ -1048,9 +945,9 @@ wss.on("connection", (socket) => {
             }
 
 
-            // ------------------------------
+            // ==================================================
             // KHÔNG CÒN AI
-            // ------------------------------
+            // ==================================================
 
             else {
 
@@ -1082,6 +979,13 @@ wss.on("connection", (socket) => {
                     player.socket !==
                     socket
             );
+
+
+        socket.lobbyCode =
+            null;
+
+        socket.isHost =
+            false;
 
 
         broadcastLobby(
