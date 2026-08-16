@@ -1,4 +1,4 @@
-```javascript
+
 const WebSocket = require("ws");
 
 const port = process.env.PORT || 10000;
@@ -1051,4 +1051,4 @@ console.log(
     "Lobby server running on port",
     port
 );
-```
+
