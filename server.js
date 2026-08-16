@@ -22,34 +22,51 @@ function generateCode() {
 }
 
 
-// =========================
-// GỬI DANH SÁCH LOBBY
-// CHO TẤT CẢ NGƯỜI
-// =========================
+// ==================================================
+// GỬI DANH SÁCH LOBBY CHO TẤT CẢ NGƯỜI
+// ==================================================
+
 function broadcastLobby(lobby, code) {
 
     const playersList = lobby.players.map((player) => {
+
         return {
             name: player.name,
             role: player.role
         };
+
     });
 
+
     const message = JSON.stringify({
+
         type: "lobby_update",
+
         lobby_code: code,
+
         players: playersList
+
     });
+
 
     for (const player of lobby.players) {
 
-        if (player.socket.readyState === WebSocket.OPEN) {
+        if (
+            player.socket.readyState === WebSocket.OPEN
+        ) {
+
             player.socket.send(message);
+
         }
 
     }
+
 }
 
+
+// ==================================================
+// SERVER
+// ==================================================
 
 wss.on("connection", (socket) => {
 
@@ -63,31 +80,39 @@ wss.on("connection", (socket) => {
             const data = JSON.parse(message);
 
 
-            // =========================
+            // ==================================================
             // CREATE LOBBY
-            // =========================
+            // ==================================================
+
             if (data.type === "create_lobby") {
 
                 const code = generateCode();
 
-                const playerName = data.player_name || "Player";
+                const playerName =
+                    data.player_name || "Player";
+
 
                 lobbies.set(code, {
 
                     host: socket,
 
                     players: [
+
                         {
                             socket: socket,
                             name: playerName,
                             role: "HOST"
                         }
+
                     ]
 
                 });
 
+
                 socket.lobbyCode = code;
+
                 socket.playerName = playerName;
+
                 socket.role = "HOST";
 
 
@@ -104,21 +129,35 @@ wss.on("connection", (socket) => {
                 }));
 
 
-                console.log("LOBBY CREATED:", code);
-                console.log("HOST:", playerName);
+                console.log(
+                    "LOBBY CREATED:",
+                    code
+                );
+
+                console.log(
+                    "HOST:",
+                    playerName
+                );
 
             }
 
 
-            // =========================
+            // ==================================================
             // JOIN LOBBY
-            // =========================
+            // ==================================================
+
             if (data.type === "join_lobby") {
 
-                const code = data.lobby_code?.toUpperCase();
+                const code =
+                    data.lobby_code?.toUpperCase();
 
-                const lobby = lobbies.get(code);
+                const lobby =
+                    lobbies.get(code);
 
+
+                // ------------------------------
+                // CODE KHÔNG TỒN TẠI
+                // ------------------------------
 
                 if (!lobby) {
 
@@ -134,6 +173,10 @@ wss.on("connection", (socket) => {
                 }
 
 
+                // ------------------------------
+                // LOBBY ĐẦY
+                // ------------------------------
+
                 if (lobby.players.length >= 4) {
 
                     socket.send(JSON.stringify({
@@ -148,12 +191,14 @@ wss.on("connection", (socket) => {
                 }
 
 
-                const playerName = data.player_name || "Player";
+                const playerName =
+                    data.player_name || "Player";
 
 
-                // =========================
+                // ------------------------------
                 // THÊM PLAYER
-                // =========================
+                // ------------------------------
+
                 lobby.players.push({
 
                     socket: socket,
@@ -166,13 +211,16 @@ wss.on("connection", (socket) => {
 
 
                 socket.lobbyCode = code;
+
                 socket.playerName = playerName;
+
                 socket.role = "PLAYER";
 
 
-                // =========================
-                // BÁO CHO NGƯỜI ĐÃ Ở TRONG LOBBY
-                // =========================
+                // ------------------------------
+                // BÁO PLAYER MỚI
+                // ------------------------------
+
                 for (const player of lobby.players) {
 
                     if (
@@ -197,20 +245,22 @@ wss.on("connection", (socket) => {
                 }
 
 
-                // =========================
-                // GỬI DANH SÁCH CHO NGƯỜI VỪA JOIN
-                // =========================
-                const playersList = lobby.players.map((player) => {
+                // ------------------------------
+                // GỬI DANH SÁCH CHO NGƯỜI JOIN
+                // ------------------------------
 
-                    return {
+                const playersList =
+                    lobby.players.map((player) => {
 
-                        name: player.name,
+                        return {
 
-                        role: player.role
+                            name: player.name,
 
-                    };
+                            role: player.role
 
-                });
+                        };
+
+                    });
 
 
                 socket.send(JSON.stringify({
@@ -224,22 +274,46 @@ wss.on("connection", (socket) => {
                 }));
 
 
-                console.log("PLAYER JOINED:", code);
-                console.log("PLAYER NAME:", playerName);
+                console.log(
+                    "PLAYER JOINED:",
+                    code
+                );
+
+                console.log(
+                    "PLAYER NAME:",
+                    playerName
+                );
+
+
+                // ------------------------------
+                // ĐỒNG BỘ LOBBY
+                // ------------------------------
+
+                broadcastLobby(
+                    lobby,
+                    code
+                );
 
             }
 
 
-            // =========================
+            // ==================================================
             // CHANGE ROLE
-            // PLAYER <-> SPECTATOR
-            // =========================
+            // HOST -> PLAYER / SPECTATOR
+            // ==================================================
+
             if (data.type === "change_role") {
 
-                const code = socket.lobbyCode;
+                const code =
+                    socket.lobbyCode;
 
-                const lobby = lobbies.get(code);
+                const lobby =
+                    lobbies.get(code);
 
+
+                // ------------------------------
+                // KHÔNG Ở TRONG LOBBY
+                // ------------------------------
 
                 if (!lobby) {
 
@@ -255,9 +329,10 @@ wss.on("connection", (socket) => {
                 }
 
 
-                // =========================
-                // CHỈ HOST ĐƯỢC ĐỔI ROLE
-                // =========================
+                // ------------------------------
+                // CHỈ HOST
+                // ------------------------------
+
                 if (socket !== lobby.host) {
 
                     socket.send(JSON.stringify({
@@ -272,14 +347,17 @@ wss.on("connection", (socket) => {
                 }
 
 
-                const targetName = data.player_name;
+                const targetName =
+                    data.player_name;
 
-                const newRole = data.role;
+                const newRole =
+                    data.role;
 
 
-                // =========================
-                // CHỈ CHO PHÉP 2 ROLE
-                // =========================
+                // ------------------------------
+                // ROLE HỢP LỆ
+                // ------------------------------
+
                 if (
                     newRole !== "PLAYER" &&
                     newRole !== "SPECTATOR"
@@ -297,14 +375,17 @@ wss.on("connection", (socket) => {
                 }
 
 
-                // =========================
-                // TÌM NGƯỜI CẦN ĐỔI
-                // =========================
-                const targetPlayer = lobby.players.find(
+                // ------------------------------
+                // TÌM PLAYER
+                // ------------------------------
 
-                    (player) => player.name === targetName
+                const targetPlayer =
+                    lobby.players.find(
 
-                );
+                        (player) =>
+                            player.name === targetName
+
+                    );
 
 
                 if (!targetPlayer) {
@@ -321,10 +402,13 @@ wss.on("connection", (socket) => {
                 }
 
 
-                // =========================
-                // KHÔNG CHO ĐỔI HOST
-                // =========================
-                if (targetPlayer.socket === lobby.host) {
+                // ------------------------------
+                // KHÔNG ĐỔI ROLE HOST
+                // ------------------------------
+
+                if (
+                    targetPlayer.socket === lobby.host
+                ) {
 
                     socket.send(JSON.stringify({
 
@@ -338,12 +422,15 @@ wss.on("connection", (socket) => {
                 }
 
 
-                // =========================
+                // ------------------------------
                 // ĐỔI ROLE
-                // =========================
-                targetPlayer.role = newRole;
+                // ------------------------------
 
-                targetPlayer.socket.role = newRole;
+                targetPlayer.role =
+                    newRole;
+
+                targetPlayer.socket.role =
+                    newRole;
 
 
                 console.log(
@@ -354,16 +441,24 @@ wss.on("connection", (socket) => {
                 );
 
 
-                // =========================
-                // ĐỒNG BỘ CHO TẤT CẢ
-                // =========================
-                broadcastLobby(lobby, code);
+                // ------------------------------
+                // GỬI CHO TẤT CẢ
+                // ------------------------------
+
+                broadcastLobby(
+                    lobby,
+                    code
+                );
 
             }
 
-        } catch (error) {
+        }
 
-            console.log("INVALID MESSAGE");
+        catch (error) {
+
+            console.log(
+                "INVALID MESSAGE"
+            );
 
             console.log(error);
 
@@ -372,16 +467,73 @@ wss.on("connection", (socket) => {
     });
 
 
-    // =========================
+    // ==================================================
     // DISCONNECT
-    // =========================
+    // ==================================================
+
     socket.on("close", () => {
 
-        console.log("PLAYER DISCONNECTED");
+        console.log(
+            "PLAYER DISCONNECTED"
+        );
+
+
+        const code =
+            socket.lobbyCode;
+
+        if (!code) {
+            return;
+        }
+
+
+        const lobby =
+            lobbies.get(code);
+
+        if (!lobby) {
+            return;
+        }
+
+
+        // Xóa player khỏi lobby
+
+        lobby.players =
+            lobby.players.filter(
+
+                (player) =>
+                    player.socket !== socket
+
+            );
+
+
+        // Nếu HOST thoát
+        // hiện tại xóa lobby luôn
+
+        if (lobby.host === socket) {
+
+            lobbies.delete(code);
+
+            console.log(
+                "HOST LEFT - LOBBY DELETED:",
+                code
+            );
+
+            return;
+        }
+
+
+        // Đồng bộ người còn lại
+
+        broadcastLobby(
+            lobby,
+            code
+        );
 
     });
 
 });
 
 
-console.log("Lobby server running on port", port);
+console.log(
+    "Lobby server running on port",
+    port
+);
