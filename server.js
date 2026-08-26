@@ -81,7 +81,7 @@ function findPlayerBySocket(lobby, socket) {
 // ==================================================
 // COUNT REAL PLAYERS
 //
-// Spectator KHÔNG được tính vào 4 slot.
+// SPECTATOR KHÔNG CHIẾM SLOT
 // ==================================================
 
 function countPlayers(lobby) {
@@ -146,6 +146,10 @@ function setHost(lobby, newHost) {
 
     }
 
+    // HOST MỚI LUÔN ĐƯỢC ĐÁNH DẤU CHƯA CHƠI
+    newHost.playing = false;
+    newHost.ready = false;
+
     console.log(
         "HOST UPDATED:",
         newHost.name
@@ -175,7 +179,17 @@ function getPlayersList(lobby) {
                     player.role,
 
                 is_host:
-                    player.is_host
+                    player.is_host,
+
+                ready:
+                    Boolean(
+                        player.ready
+                    ),
+
+                playing:
+                    Boolean(
+                        player.playing
+                    )
 
             };
 
@@ -197,7 +211,6 @@ function broadcastLobby(lobby, code) {
     const playersList =
         getPlayersList(lobby);
 
-
     const message =
         JSON.stringify({
 
@@ -211,7 +224,6 @@ function broadcastLobby(lobby, code) {
                 playersList
 
         });
-
 
     for (
         const player
@@ -230,7 +242,6 @@ function broadcastLobby(lobby, code) {
         }
 
     }
-
 
     console.log(
         "LOBBY BROADCAST:",
@@ -320,7 +331,6 @@ wss.on(
             "PLAYER CONNECTED"
         );
 
-
         socket.lobbyCode = null;
         socket.playerName = "";
         socket.role = "PLAYER";
@@ -342,8 +352,10 @@ wss.on(
                             message
                         );
 
-
-                    if (!data || !data.type) {
+                    if (
+                        !data ||
+                        !data.type
+                    ) {
 
                         console.log(
                             "INVALID MESSAGE DATA"
@@ -362,11 +374,9 @@ wss.on(
                         "create_lobby"
                     ) {
 
-                        // ------------------------------
-                        // KHÔNG CHO 1 SOCKET TẠO NHIỀU LOBBY
-                        // ------------------------------
-
-                        if (socket.lobbyCode) {
+                        if (
+                            socket.lobbyCode
+                        ) {
 
                             sendError(
                                 socket,
@@ -401,7 +411,13 @@ wss.on(
                                 "PLAYER",
 
                             is_host:
-                                true
+                                true,
+
+                            ready:
+                                false,
+
+                            playing:
+                                false
 
                         };
 
@@ -501,11 +517,9 @@ wss.on(
                         "join_lobby"
                     ) {
 
-                        // ------------------------------
-                        // KHÔNG CHO JOIN NẾU ĐÃ Ở LOBBY
-                        // ------------------------------
-
-                        if (socket.lobbyCode) {
+                        if (
+                            socket.lobbyCode
+                        ) {
 
                             sendError(
                                 socket,
@@ -543,11 +557,9 @@ wss.on(
                         }
 
 
-                        // ------------------------------
-                        // CHỈ CHECK 4 PLAYER
-                        //
-                        // SPECTATOR KHÔNG CHIẾM SLOT
-                        // ------------------------------
+                        // ==================================================
+                        // CHỈ PLAYER CHIẾM 4 SLOT
+                        // ==================================================
 
                         if (
                             countPlayers(lobby) >=
@@ -571,9 +583,9 @@ wss.on(
                             ).trim();
 
 
-                        // ------------------------------
+                        // ==================================================
                         // KHÔNG CHO TRÙNG TÊN
-                        // ------------------------------
+                        // ==================================================
 
                         if (
                             findPlayer(
@@ -604,6 +616,12 @@ wss.on(
                                 "PLAYER",
 
                             is_host:
+                                false,
+
+                            ready:
+                                false,
+
+                            playing:
                                 false
 
                         };
@@ -635,9 +653,9 @@ wss.on(
                         );
 
 
-                        // ------------------------------
+                        // ==================================================
                         // JOIN SUCCESS
-                        // ------------------------------
+                        // ==================================================
 
                         socket.send(
                             JSON.stringify({
@@ -657,9 +675,9 @@ wss.on(
                         );
 
 
-                        // ------------------------------
-                        // BÁO PLAYER JOINED
-                        // ------------------------------
+                        // ==================================================
+                        // PLAYER JOINED
+                        // ==================================================
 
                         for (
                             const player
@@ -699,9 +717,9 @@ wss.on(
                         }
 
 
-                        // ------------------------------
+                        // ==================================================
                         // ĐỒNG BỘ
-                        // ------------------------------
+                        // ==================================================
 
                         broadcastLobby(
                             lobby,
@@ -714,15 +732,6 @@ wss.on(
 
                     // ==================================================
                     // CHANGE ROLE
-                    //
-                    // HOST:
-                    //   đổi role người khác
-                    //
-                    // PLAYER:
-                    //   tự đổi
-                    //
-                    // SPECTATOR:
-                    //   tự đổi
                     // ==================================================
 
                     if (
@@ -824,9 +833,7 @@ wss.on(
                             }
 
 
-                            // ------------------------------
                             // HOST KHÔNG THỂ THÀNH SPECTATOR
-                            // ------------------------------
 
                             if (
                                 targetPlayer.socket ===
@@ -845,16 +852,15 @@ wss.on(
                             }
 
 
-                            // ------------------------------
-                            // ĐỔI SANG PLAYER
-                            // ------------------------------
+                            // ==================================================
+                            // SPECTATOR -> PLAYER
+                            // ==================================================
 
                             if (
                                 newRole ===
                                 "PLAYER"
                             ) {
 
-                                // Đã là PLAYER rồi
                                 if (
                                     targetPlayer.role ===
                                     "PLAYER"
@@ -869,7 +875,6 @@ wss.on(
                                 }
 
 
-                                // Spectator -> Player
                                 if (
                                     countPlayers(lobby) >=
                                     MAX_PLAYERS
@@ -892,6 +897,34 @@ wss.on(
 
                             targetPlayer.socket.role =
                                 newRole;
+
+
+                            // SPECTATOR KHÔNG ĐƯỢC PLAYING
+                            if (
+                                newRole ===
+                                "SPECTATOR"
+                            ) {
+
+                                targetPlayer.playing =
+                                    false;
+
+                                targetPlayer.ready =
+                                    false;
+
+                            }
+
+
+                            // PLAYER VỪA ĐƯỢC CHUYỂN TỪ
+                            // SPECTATOR SANG PLAYER
+                            else {
+
+                                targetPlayer.playing =
+                                    false;
+
+                                targetPlayer.ready =
+                                    false;
+
+                            }
 
 
                             console.log(
@@ -919,10 +952,6 @@ wss.on(
                             data.player_name;
 
 
-                        // ------------------------------
-                        // CHỈ ĐƯỢC ĐỔI CHÍNH MÌNH
-                        // ------------------------------
-
                         if (
                             targetName !==
                             requestingPlayer.name
@@ -945,9 +974,7 @@ wss.on(
                         }
 
 
-                        // ------------------------------
-                        // KHÔNG CHO HOST THÀNH SPECTATOR
-                        // ------------------------------
+                        // HOST KHÔNG THỂ THÀNH SPECTATOR
 
                         if (
                             socket ===
@@ -966,11 +993,9 @@ wss.on(
                         }
 
 
-                        // ------------------------------
+                        // ==================================================
                         // SPECTATOR -> PLAYER
-                        //
-                        // KIỂM TRA CÒN SLOT
-                        // ------------------------------
+                        // ==================================================
 
                         if (
                             newRole ===
@@ -996,15 +1021,33 @@ wss.on(
                         }
 
 
-                        // ------------------------------
-                        // ĐỔI ROLE
-                        // ------------------------------
-
                         requestingPlayer.role =
                             newRole;
 
                         socket.role =
                             newRole;
+
+
+                        if (
+                            newRole ===
+                            "SPECTATOR"
+                        ) {
+
+                            requestingPlayer.playing =
+                                false;
+
+                            requestingPlayer.ready =
+                                false;
+
+                        } else {
+
+                            requestingPlayer.playing =
+                                false;
+
+                            requestingPlayer.ready =
+                                false;
+
+                        }
 
 
                         console.log(
@@ -1014,10 +1057,6 @@ wss.on(
                             newRole
                         );
 
-
-                        // ------------------------------
-                        // ĐỒNG BỘ
-                        // ------------------------------
 
                         broadcastLobby(
                             lobby,
@@ -1032,8 +1071,6 @@ wss.on(
                     // START GAME
                     //
                     // CHỈ HOST ĐƯỢC START
-                    //
-                    // KHÔNG CẦN PLAYER READY
                     // ==================================================
 
                     if (
@@ -1051,10 +1088,6 @@ wss.on(
                             );
 
 
-                        // ------------------------------
-                        // KHÔNG Ở TRONG LOBBY
-                        // ------------------------------
-
                         if (!lobby) {
 
                             sendError(
@@ -1067,9 +1100,9 @@ wss.on(
                         }
 
 
-                        // ------------------------------
+                        // ==================================================
                         // CHỈ HOST
-                        // ------------------------------
+                        // ==================================================
 
                         if (
                             lobby.host !==
@@ -1092,9 +1125,9 @@ wss.on(
                         }
 
 
-                        // ------------------------------
+                        // ==================================================
                         // PHẢI CÓ ÍT NHẤT 1 PLAYER
-                        // ------------------------------
+                        // ==================================================
 
                         const playerCount =
                             countPlayers(lobby);
@@ -1113,10 +1146,6 @@ wss.on(
                             return;
                         }
 
-
-                        // ------------------------------
-                        // LOG
-                        // ------------------------------
 
                         console.log(
                             "=================================="
@@ -1142,18 +1171,58 @@ wss.on(
                             countSpectators(lobby)
                         );
 
-                        console.log(
-                            "READY CHECK: DISABLED"
-                        );
+
+                        // ==================================================
+                        // ĐÁNH DẤU PLAYING
+                        // ==================================================
+
+                        for (
+                            const player
+                            of lobby.players
+                        ) {
+
+                            if (
+                                player.role ===
+                                "PLAYER"
+                            ) {
+
+                                player.playing =
+                                    true;
+
+                                player.ready =
+                                    false;
+
+                            } else {
+
+                                player.playing =
+                                    false;
+
+                                player.ready =
+                                    false;
+
+                            }
+
+                        }
+
 
                         console.log(
-                            "=================================="
+                            "PLAYING STATUS UPDATED"
                         );
 
 
-                        // ------------------------------
-                        // GỬI START GAME CHO TẤT CẢ
-                        // ------------------------------
+                        // ==================================================
+                        // GỬI LOBBY UPDATE
+                        // ==================================================
+
+                        broadcastLobby(
+                            lobby,
+                            code
+                        );
+
+
+                        // ==================================================
+                        // GỬI START GAME
+                        // ==================================================
 
                         const startMessage =
                             JSON.stringify({
@@ -1190,6 +1259,132 @@ wss.on(
                             "START GAME SENT TO ALL PLAYERS"
                         );
 
+                        console.log(
+                            "=================================="
+                        );
+
+                        return;
+                    }
+
+
+                    // ==================================================
+                    // PLAYER GAME STATUS
+                    //
+                    // Sau này Godot có thể gửi:
+                    //
+                    // {
+                    //   "type": "game_status",
+                    //   "playing": false
+                    // }
+                    //
+                    // để báo người chơi đã chết.
+                    // ==================================================
+
+                    if (
+                        data.type ===
+                        "game_status"
+                    ) {
+
+                        const code =
+                            socket.lobbyCode;
+
+
+                        const lobby =
+                            lobbies.get(
+                                code
+                            );
+
+
+                        if (!lobby) {
+
+                            sendError(
+                                socket,
+                                "game_status_failed",
+                                "NOT_IN_LOBBY"
+                            );
+
+                            return;
+                        }
+
+
+                        const player =
+                            findPlayerBySocket(
+                                lobby,
+                                socket
+                            );
+
+
+                        if (!player) {
+
+                            sendError(
+                                socket,
+                                "game_status_failed",
+                                "PLAYER_NOT_FOUND"
+                            );
+
+                            return;
+                        }
+
+
+                        // ==================================================
+                        // SPECTATOR KHÔNG ĐƯỢC PLAYING
+                        // ==================================================
+
+                        if (
+                            player.role !==
+                            "PLAYER"
+                        ) {
+
+                            player.playing =
+                                false;
+
+                            player.ready =
+                                false;
+
+                            broadcastLobby(
+                                lobby,
+                                code
+                            );
+
+                            return;
+                        }
+
+
+                        // ==================================================
+                        // CẬP NHẬT PLAYING
+                        // ==================================================
+
+                        player.playing =
+                            Boolean(
+                                data.playing
+                            );
+
+
+                        // Khi không còn chơi
+                        // thì READY cũng reset
+
+                        if (
+                            !player.playing
+                        ) {
+
+                            player.ready =
+                                false;
+
+                        }
+
+
+                        console.log(
+                            "GAME STATUS:",
+                            player.name,
+                            "-> PLAYING:",
+                            player.playing
+                        );
+
+
+                        broadcastLobby(
+                            lobby,
+                            code
+                        );
 
                         return;
                     }
@@ -1197,8 +1392,6 @@ wss.on(
 
                     // ==================================================
                     // KICK PLAYER / SPECTATOR
-                    //
-                    // CHỈ HOST
                     // ==================================================
 
                     if (
@@ -1227,10 +1420,6 @@ wss.on(
                             return;
                         }
 
-
-                        // ------------------------------
-                        // KIỂM TRA HOST
-                        // ------------------------------
 
                         if (
                             lobby.host !==
@@ -1279,10 +1468,6 @@ wss.on(
                             targetPlayer.socket;
 
 
-                        // ------------------------------
-                        // KHÔNG KICK HOST
-                        // ------------------------------
-
                         if (
                             targetSocket ===
                             lobby.host
@@ -1310,19 +1495,15 @@ wss.on(
                         );
 
 
-                        // ------------------------------
-                        // XÓA KHỎI LOBBY
-                        // ------------------------------
-
                         removePlayerFromLobby(
                             lobby,
                             targetSocket
                         );
 
 
-                        // ------------------------------
+                        // ==================================================
                         // BÁO NGƯỜI BỊ KICK
-                        // ------------------------------
+                        // ==================================================
 
                         if (
                             targetSocket.readyState ===
@@ -1344,18 +1525,14 @@ wss.on(
                         }
 
 
-                        // ------------------------------
-                        // RESET SOCKET
-                        // ------------------------------
-
                         resetSocket(
                             targetSocket
                         );
 
 
-                        // ------------------------------
+                        // ==================================================
                         // BÁO HOST
-                        // ------------------------------
+                        // ==================================================
 
                         if (
                             socket.readyState ===
@@ -1377,12 +1554,13 @@ wss.on(
                         }
 
 
-                        // ------------------------------
+                        // ==================================================
                         // UPDATE
-                        // ------------------------------
+                        // ==================================================
 
                         if (
-                            lobby.players.length > 0
+                            lobby.players.length >
+                            0
                         ) {
 
                             broadcastLobby(
@@ -1414,10 +1592,6 @@ wss.on(
 
                     // ==================================================
                     // READY CHANGE
-                    //
-                    // PLAYER CÓ THỂ READY / NOT READY
-                    //
-                    // READY KHÔNG ẢNH HƯỞNG ĐẾN START GAME
                     // ==================================================
 
                     if (
@@ -1466,9 +1640,9 @@ wss.on(
                         }
 
 
-                        // ------------------------------
+                        // ==================================================
                         // SPECTATOR KHÔNG READY
-                        // ------------------------------
+                        // ==================================================
 
                         if (
                             player.role !==
@@ -1485,9 +1659,23 @@ wss.on(
                         }
 
 
-                        // ------------------------------
-                        // CẬP NHẬT READY
-                        // ------------------------------
+                        // ==================================================
+                        // KHÔNG READY KHI ĐANG PLAYING
+                        // ==================================================
+
+                        if (
+                            player.playing
+                        ) {
+
+                            sendError(
+                                socket,
+                                "ready_change_failed",
+                                "PLAYER_ALREADY_PLAYING"
+                            );
+
+                            return;
+                        }
+
 
                         player.ready =
                             Boolean(
@@ -1503,69 +1691,10 @@ wss.on(
                         );
 
 
-                        // ------------------------------
-                        // ĐỒNG BỘ READY
-                        // ------------------------------
-
-                        const playersList =
-                            lobby.players.map(
-                                (currentPlayer) => {
-
-                                    return {
-
-                                        name:
-                                            currentPlayer.name,
-
-                                        role:
-                                            currentPlayer.role,
-
-                                        is_host:
-                                            currentPlayer.is_host,
-
-                                        ready:
-                                            Boolean(
-                                                currentPlayer.ready
-                                            )
-
-                                    };
-
-                                }
-                            );
-
-
-                        const readyMessage =
-                            JSON.stringify({
-
-                                type:
-                                    "lobby_update",
-
-                                lobby_code:
-                                    code,
-
-                                players:
-                                    playersList
-
-                            });
-
-
-                        for (
-                            const currentPlayer
-                            of lobby.players
-                        ) {
-
-                            if (
-                                currentPlayer.socket.readyState ===
-                                WebSocket.OPEN
-                            ) {
-
-                                currentPlayer.socket.send(
-                                    readyMessage
-                                );
-
-                            }
-
-                        }
-
+                        broadcastLobby(
+                            lobby,
+                            code
+                        );
 
                         return;
                     }
@@ -1628,10 +1757,6 @@ wss.on(
                     socket.lobbyCode;
 
 
-                // --------------------------------------------------
-                // SOCKET KHÔNG CÒN TRONG LOBBY
-                // --------------------------------------------------
-
                 if (!code) {
 
                     console.log(
@@ -1665,10 +1790,6 @@ wss.on(
                     return;
                 }
 
-
-                // ==================================================
-                // TÌM PLAYER
-                // ==================================================
 
                 const playerIndex =
                     lobby.players.findIndex(
@@ -1710,10 +1831,6 @@ wss.on(
                     );
 
 
-                    // ------------------------------
-                    // XÓA HOST
-                    // ------------------------------
-
                     removePlayerFromLobby(
                         lobby,
                         socket
@@ -1725,19 +1842,12 @@ wss.on(
                     );
 
 
-                    // ==================================================
-                    // CÒN NGƯỜI
-                    // ==================================================
-
                     if (
                         lobby.players.length >
                         0
                     ) {
 
-                        // ------------------------------
-                        // ƯU TIÊN PLAYER LÀM HOST
-                        // ------------------------------
-
+                        // ƯU TIÊN PLAYER
                         let newHost =
                             lobby.players.find(
                                 (player) =>
@@ -1746,11 +1856,8 @@ wss.on(
                             );
 
 
-                        // ------------------------------
                         // NẾU KHÔNG CÒN PLAYER
-                        // THÌ LẤY SPECTATOR ĐẦU TIÊN
-                        // ------------------------------
-
+                        // CHỌN SPECTATOR
                         if (!newHost) {
 
                             newHost =
@@ -1776,14 +1883,7 @@ wss.on(
                             code
                         );
 
-                    }
-
-
-                    // ==================================================
-                    // KHÔNG CÒN AI
-                    // ==================================================
-
-                    else {
+                    } else {
 
                         lobbies.delete(
                             code
@@ -1826,10 +1926,6 @@ wss.on(
                 );
 
 
-                // ------------------------------
-                // LOBBY CÒN NGƯỜI
-                // ------------------------------
-
                 if (
                     lobby.players.length >
                     0
@@ -1840,14 +1936,7 @@ wss.on(
                         code
                     );
 
-                }
-
-
-                // ------------------------------
-                // LOBBY TRỐNG
-                // ------------------------------
-
-                else {
+                } else {
 
                     lobbies.delete(
                         code
