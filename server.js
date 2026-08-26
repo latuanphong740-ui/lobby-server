@@ -189,6 +189,53 @@ function setHost(lobby, newHost) {
 
 
 // ==================================================
+// FIND NEXT HOST
+// ==================================================
+//
+// Chỉ gọi hàm này khi HOST cũ đã thực sự bị xóa
+// sau khi hết thời gian reconnect.
+// ==================================================
+
+function chooseNewHost(lobby) {
+
+    if (!lobby)
+        return;
+
+    if (lobby.host)
+        return;
+
+    const newHost =
+        lobby.players.find(
+            p =>
+                p.role === "PLAYER" &&
+                p.socket &&
+                p.socket.readyState ===
+                    WebSocket.OPEN
+        );
+
+    if (newHost) {
+
+        setHost(
+            lobby,
+            newHost
+        );
+
+        broadcastLobby(
+            lobby,
+            lobby.code
+        );
+
+        console.log(
+            "HOST TRANSFERRED TO:",
+            newHost.name,
+            "| LOBBY:",
+            lobby.code
+        );
+    }
+}
+
+
+// ==================================================
 // PLAYER LIST
 // ==================================================
 
@@ -361,6 +408,16 @@ function removePlayerFromLobby(
     if (!lobby || !player)
         return;
 
+    if (player.disconnect_timer) {
+
+        clearTimeout(
+            player.disconnect_timer
+        );
+
+        player.disconnect_timer =
+            null;
+    }
+
     lobby.players =
         lobby.players.filter(
             p =>
@@ -422,15 +479,6 @@ function schedulePlayerRemoval(
         setTimeout(
             () => {
 
-                if (
-                    player.socket &&
-                    player.socket.readyState ===
-                        WebSocket.OPEN
-                ) {
-
-                    return;
-                }
-
                 const currentLobby =
                     lobbies.get(
                         lobby.code
@@ -448,6 +496,22 @@ function schedulePlayerRemoval(
                 if (!currentPlayer)
                     return;
 
+                // ==========================================
+                // PLAYER ĐÃ RECONNECT
+                // ==========================================
+
+                if (
+                    currentPlayer.socket &&
+                    currentPlayer.socket.readyState ===
+                        WebSocket.OPEN
+                ) {
+
+                    currentPlayer.disconnect_timer =
+                        null;
+
+                    return;
+                }
+
                 console.log(
                     "RECONNECT TIMEOUT:",
                     currentPlayer.name
@@ -456,16 +520,33 @@ function schedulePlayerRemoval(
                 const wasHost =
                     currentPlayer.is_host;
 
+                // ==========================================
+                // XÓA PLAYER KHỎI LOBBY
+                // ==========================================
+
                 removePlayerFromLobby(
                     currentLobby,
                     currentPlayer
                 );
 
+                // ==========================================
+                // NẾU LÀ HOST CŨ
+                // ==========================================
+
                 if (wasHost) {
 
                     currentLobby.host =
                         null;
+
+                    console.log(
+                        "HOST REMOVED AFTER RECONNECT TIMEOUT:",
+                        currentPlayer.name
+                    );
                 }
+
+                // ==========================================
+                // LOBBY RỖNG
+                // ==========================================
 
                 if (
                     currentLobby.players.length ===
@@ -473,45 +554,34 @@ function schedulePlayerRemoval(
                 ) {
 
                     lobbies.delete(
-                        lobby.code
+                        currentLobby.code
                     );
 
                     console.log(
                         "LOBBY DELETED:",
-                        lobby.code
+                        currentLobby.code
                     );
 
                     return;
                 }
 
                 // ==========================================
-                // CHOOSE NEW HOST
+                // CHỌN HOST MỚI
+                //
+                // Chỉ xảy ra sau khi HOST cũ đã
+                // hết 5 phút reconnect.
                 // ==========================================
 
-                if (!currentLobby.host) {
+                if (wasHost) {
 
-                    const newHost =
-                        currentLobby.players.find(
-                            p =>
-                                p.role ===
-                                    "PLAYER" &&
-                                p.socket &&
-                                p.socket.readyState ===
-                                    WebSocket.OPEN
-                        );
-
-                    if (newHost) {
-
-                        setHost(
-                            currentLobby,
-                            newHost
-                        );
-                    }
+                    chooseNewHost(
+                        currentLobby
+                    );
                 }
 
                 broadcastLobby(
                     currentLobby,
-                    lobby.code
+                    currentLobby.code
                 );
 
             },
@@ -551,6 +621,10 @@ function createLobby(
 
         role:
             "PLAYER",
+
+        // ==========================================
+        // HOST QUYỀN ĐƯỢC LƯU Ở PLAYER
+        // ==========================================
 
         is_host:
             true,
@@ -711,10 +785,36 @@ function joinLobby(
 
     if (existing) {
 
+        // ==========================================
+        // CHỈ CHẶN NAME NẾU PLAYER CŨ ĐANG ONLINE
+        // ==========================================
+
+        if (
+            existing.socket &&
+            existing.socket.readyState ===
+                WebSocket.OPEN
+        ) {
+
+            sendError(
+                socket,
+                "join_failed",
+                "NAME_ALREADY_IN_LOBBY"
+            );
+
+            return;
+        }
+
+        // ==========================================
+        // PLAYER CŨ OFFLINE
+        //
+        // Không cho join bằng tên đó vì player
+        // cũ vẫn còn trong thời gian reconnect.
+        // ==========================================
+
         sendError(
             socket,
             "join_failed",
-            "NAME_ALREADY_IN_LOBBY"
+            "NAME_RESERVED_FOR_RECONNECT"
         );
 
         return;
@@ -909,6 +1009,10 @@ function reconnectLobby(
         return;
     }
 
+    // ==========================================
+    // HỦY TIMER RECONNECT
+    // ==========================================
+
     if (
         player.disconnect_timer
     ) {
@@ -920,6 +1024,10 @@ function reconnectLobby(
         player.disconnect_timer =
             null;
     }
+
+    // ==========================================
+    // GẮN SOCKET MỚI
+    // ==========================================
 
     player.socket =
         socket;
@@ -942,10 +1050,32 @@ function reconnectLobby(
     socket.isHost =
         player.is_host;
 
+    // ==========================================
+    // QUAN TRỌNG:
+    // NẾU PLAYER CŨ LÀ HOST
+    // → KHÔI PHỤC HOST
+    // ==========================================
+
     if (player.is_host) {
 
         lobby.host =
             socket;
+
+        player.role =
+            "PLAYER";
+
+        socket.role =
+            "PLAYER";
+
+        socket.isHost =
+            true;
+
+        console.log(
+            "HOST RECONNECTED:",
+            player.name,
+            "| LOBBY:",
+            code
+        );
     }
 
     sendToSocket(
@@ -1152,6 +1282,25 @@ function changeRole(
             socket,
             "role_change_failed",
             "ONLY_CHANGE_SELF"
+        );
+
+        return;
+    }
+
+    // ==========================================
+    // HOST KHÔNG ĐƯỢC ĐỔI SANG SPECTATOR
+    // ==========================================
+
+    if (
+        requestingPlayer.is_host &&
+        newRole ===
+            "SPECTATOR"
+    ) {
+
+        sendError(
+            socket,
+            "role_change_failed",
+            "HOST_CANNOT_BE_SPECTATOR"
         );
 
         return;
@@ -1413,18 +1562,6 @@ function gameStatus(
 // ==================================================
 // PLAYER STATE
 // ==================================================
-//
-// Đây là phần mới.
-//
-// Player gửi:
-// x / y
-// velocity
-// rotation
-// animation
-//
-// Server gửi trạng thái đó
-// cho những player khác.
-// ==================================================
 
 function playerState(
     socket,
@@ -1518,10 +1655,6 @@ function playerState(
                 data.animation || ""
             )
     };
-
-    // ==========================================
-    // GỬI CHO PLAYER KHÁC
-    // ==========================================
 
     broadcastToOthers(
         lobby,
@@ -2119,6 +2252,18 @@ wss.on(
                     return;
 
                 // ==========================================
+                // NGĂN SOCKET CŨ GHI ĐÈ SOCKET MỚI
+                // ==========================================
+
+                if (
+                    player.socket !==
+                    socket
+                ) {
+
+                    return;
+                }
+
+                // ==========================================
                 // NGẮT SOCKET
                 // ==========================================
 
@@ -2128,17 +2273,37 @@ wss.on(
                 const wasHost =
                     player.is_host;
 
+                // ==========================================
+                // QUAN TRỌNG:
+                //
+                // KHÔNG XÓA player.is_host
+                //
+                // HOST VẪN GIỮ QUYỀN HOST TRONG
+                // 5 PHÚT RECONNECT.
+                // ==========================================
+
                 if (wasHost) {
 
                     lobby.host =
                         null;
 
-                    player.is_host =
-                        false;
+                    // Vẫn giữ:
+                    //
+                    // player.is_host = true
+                    //
+                    // để khi reconnect có thể
+                    // khôi phục HOST.
+
+                    console.log(
+                        "HOST DISCONNECTED - HOST RESERVED FOR RECONNECT:",
+                        player.name,
+                        "| LOBBY:",
+                        code
+                    );
                 }
 
                 // ==========================================
-                // GIỮ PLAYER 5 PHÚT
+                // PLAYER KHÁC THÌ GIỮ NGUYÊN
                 // ==========================================
 
                 schedulePlayerRemoval(
@@ -2147,35 +2312,11 @@ wss.on(
                 );
 
                 // ==========================================
-                // CHỌN HOST MỚI NGAY
+                // KHÔNG CHUYỂN HOST NGAY TẠI ĐÂY
+                //
+                // Nếu chuyển ngay thì HOST cũ reconnect
+                // sẽ bị mất quyền HOST.
                 // ==========================================
-
-                if (
-                    wasHost &&
-                    lobby.host ===
-                        null
-                ) {
-
-                    const newHost =
-                        lobby.players.find(
-                            p =>
-                                p.player_id !==
-                                    player.player_id &&
-                                p.role ===
-                                    "PLAYER" &&
-                                p.socket &&
-                                p.socket.readyState ===
-                                    WebSocket.OPEN
-                        );
-
-                    if (newHost) {
-
-                        setHost(
-                            lobby,
-                            newHost
-                        );
-                    }
-                }
 
                 broadcastLobby(
                     lobby,
