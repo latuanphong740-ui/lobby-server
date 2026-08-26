@@ -8,28 +8,35 @@ const lobbies = new Map();
 const MAX_PLAYERS = 4;
 
 // ==================================================
-// RECONNECT SETTINGS
+// RECONNECT
 // ==================================================
 
-// Khi mất kết nối, người chơi vẫn được giữ trong lobby
-// trong khoảng thời gian này để có thể reconnect.
-const RECONNECT_GRACE_TIME = 5 * 60 * 1000; // 5 phút
+const RECONNECT_GRACE_TIME = 5 * 60 * 1000;
 
 
 // ==================================================
-// GENERATE CODE
+// GENERATE LOBBY CODE - 3 CHARACTERS
 // ==================================================
 
 function generateCode() {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+    const chars =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
     let code;
 
     do {
+
         code = "";
 
-        for (let i = 0; i < 6; i++) {
-            code += chars[Math.floor(Math.random() * chars.length)];
+        for (let i = 0; i < 3; i++) {
+
+            code +=
+                chars[
+                    Math.floor(
+                        Math.random() * chars.length
+                    )
+                ];
         }
 
     } while (lobbies.has(code));
@@ -43,9 +50,12 @@ function generateCode() {
 // ==================================================
 
 function generatePlayerId() {
+
     return (
         Date.now().toString(36) +
-        Math.random().toString(36).substring(2, 10)
+        Math.random()
+            .toString(36)
+            .substring(2, 10)
     ).toUpperCase();
 }
 
@@ -55,7 +65,9 @@ function generatePlayerId() {
 // ==================================================
 
 function findPlayer(lobby, name) {
-    if (!lobby) return null;
+
+    if (!lobby)
+        return null;
 
     return lobby.players.find(
         p => p.name === name
@@ -64,7 +76,9 @@ function findPlayer(lobby, name) {
 
 
 function findPlayerById(lobby, playerId) {
-    if (!lobby) return null;
+
+    if (!lobby)
+        return null;
 
     return lobby.players.find(
         p => p.player_id === playerId
@@ -73,7 +87,9 @@ function findPlayerById(lobby, playerId) {
 
 
 function findPlayerBySocket(lobby, socket) {
-    if (!lobby) return null;
+
+    if (!lobby)
+        return null;
 
     return lobby.players.find(
         p => p.socket === socket
@@ -86,7 +102,9 @@ function findPlayerBySocket(lobby, socket) {
 // ==================================================
 
 function countPlayers(lobby) {
-    if (!lobby) return 0;
+
+    if (!lobby)
+        return 0;
 
     return lobby.players.filter(
         p => p.role === "PLAYER"
@@ -95,7 +113,9 @@ function countPlayers(lobby) {
 
 
 function countSpectators(lobby) {
-    if (!lobby) return 0;
+
+    if (!lobby)
+        return 0;
 
     return lobby.players.filter(
         p => p.role === "SPECTATOR"
@@ -108,12 +128,15 @@ function countSpectators(lobby) {
 // ==================================================
 
 function countOnline(lobby) {
-    if (!lobby) return 0;
+
+    if (!lobby)
+        return 0;
 
     return lobby.players.filter(
         p =>
             p.socket &&
-            p.socket.readyState === WebSocket.OPEN
+            p.socket.readyState ===
+                WebSocket.OPEN
     ).length;
 }
 
@@ -123,31 +146,43 @@ function countOnline(lobby) {
 // ==================================================
 
 function setHost(lobby, newHost) {
-    if (!lobby || !newHost) return;
 
-    lobby.host = newHost.socket;
+    if (!lobby || !newHost)
+        return;
+
+    lobby.host =
+        newHost.socket;
 
     for (const player of lobby.players) {
 
         const isNewHost =
-            player.player_id === newHost.player_id;
+            player.player_id ===
+            newHost.player_id;
 
-        player.is_host = isNewHost;
+        player.is_host =
+            isNewHost;
 
         if (player.socket) {
-            player.socket.isHost = isNewHost;
+
+            player.socket.isHost =
+                isNewHost;
         }
 
         if (isNewHost) {
-            player.role = "PLAYER";
+
+            player.role =
+                "PLAYER";
         }
     }
 
-    newHost.role = "PLAYER";
-    newHost.ready = false;
+    newHost.role =
+        "PLAYER";
+
+    newHost.ready =
+        false;
 
     console.log(
-        "HOST UPDATED:",
+        "NEW HOST:",
         newHost.name
     );
 }
@@ -159,26 +194,44 @@ function setHost(lobby, newHost) {
 
 function getPlayersList(lobby) {
 
-    if (!lobby) return [];
+    if (!lobby)
+        return [];
 
-    return lobby.players.map(player => ({
-        player_id: player.player_id,
+    return lobby.players.map(
+        player => ({
 
-        name: player.name,
+            player_id:
+                player.player_id,
 
-        role: player.role,
+            name:
+                player.name,
 
-        is_host: Boolean(player.is_host),
+            role:
+                player.role,
 
-        ready: Boolean(player.ready),
+            is_host:
+                Boolean(
+                    player.is_host
+                ),
 
-        playing: Boolean(player.playing),
+            ready:
+                Boolean(
+                    player.ready
+                ),
 
-        connected: Boolean(
-            player.socket &&
-            player.socket.readyState === WebSocket.OPEN
-        )
-    }));
+            playing:
+                Boolean(
+                    player.playing
+                ),
+
+            connected:
+                Boolean(
+                    player.socket &&
+                    player.socket.readyState ===
+                        WebSocket.OPEN
+                )
+        })
+    );
 }
 
 
@@ -186,14 +239,19 @@ function getPlayersList(lobby) {
 // SEND TO SOCKET
 // ==================================================
 
-function sendToSocket(socket, data) {
+function sendToSocket(
+    socket,
+    data
+) {
 
-    if (!socket) return;
+    if (!socket)
+        return;
 
     if (
         socket.readyState ===
         WebSocket.OPEN
     ) {
+
         socket.send(
             JSON.stringify(data)
         );
@@ -211,10 +269,13 @@ function sendError(
     reason
 ) {
 
-    sendToSocket(socket, {
-        type: type,
-        reason: reason
-    });
+    sendToSocket(
+        socket,
+        {
+            type: type,
+            reason: reason
+        }
+    );
 }
 
 
@@ -227,34 +288,64 @@ function broadcastLobby(
     code
 ) {
 
-    if (!lobby) return;
+    if (!lobby)
+        return;
 
     const message = {
-        type: "lobby_update",
 
-        lobby_code: code,
+        type:
+            "lobby_update",
 
-        players: getPlayersList(lobby)
+        lobby_code:
+            code,
+
+        players:
+            getPlayersList(lobby)
     };
 
-    for (const player of lobby.players) {
+    for (
+        const player of
+        lobby.players
+    ) {
 
         sendToSocket(
             player.socket,
             message
         );
     }
+}
 
-    console.log(
-        "LOBBY UPDATE:",
-        code,
-        "| PLAYERS:",
-        countPlayers(lobby),
-        "| SPECTATORS:",
-        countSpectators(lobby),
-        "| ONLINE:",
-        countOnline(lobby)
-    );
+
+// ==================================================
+// BROADCAST TO OTHER PLAYERS
+// ==================================================
+
+function broadcastToOthers(
+    lobby,
+    senderSocket,
+    data
+) {
+
+    if (!lobby)
+        return;
+
+    for (
+        const player of
+        lobby.players
+    ) {
+
+        if (
+            player.socket &&
+            player.socket !==
+                senderSocket
+        ) {
+
+            sendToSocket(
+                player.socket,
+                data
+            );
+        }
+    }
 }
 
 
@@ -267,7 +358,8 @@ function removePlayerFromLobby(
     player
 ) {
 
-    if (!lobby || !player) return;
+    if (!lobby || !player)
+        return;
 
     lobby.players =
         lobby.players.filter(
@@ -284,31 +376,23 @@ function removePlayerFromLobby(
 
 function resetSocket(socket) {
 
-    if (!socket) return;
+    if (!socket)
+        return;
 
-    socket.lobbyCode = null;
+    socket.lobbyCode =
+        null;
 
-    socket.playerName = "";
+    socket.playerName =
+        "";
 
-    socket.playerId = null;
+    socket.playerId =
+        null;
 
-    socket.role = "PLAYER";
+    socket.role =
+        "PLAYER";
 
-    socket.isHost = false;
-}
-
-
-// ==================================================
-// RECONNECT TOKEN INFO
-// ==================================================
-
-function createReconnectInfo(player) {
-
-    return {
-        player_id: player.player_id,
-
-        lobby_code: player.lobby_code
-    };
+    socket.isHost =
+        false;
 }
 
 
@@ -321,9 +405,9 @@ function schedulePlayerRemoval(
     player
 ) {
 
-    if (!lobby || !player) return;
+    if (!lobby || !player)
+        return;
 
-    // Xóa timer cũ nếu có
     if (player.disconnect_timer) {
 
         clearTimeout(
@@ -335,109 +419,104 @@ function schedulePlayerRemoval(
         Date.now();
 
     player.disconnect_timer =
-        setTimeout(() => {
+        setTimeout(
+            () => {
 
-            // Nếu đã reconnect thì không xóa
-            if (
-                player.socket &&
-                player.socket.readyState ===
-                WebSocket.OPEN
-            ) {
-                return;
-            }
+                if (
+                    player.socket &&
+                    player.socket.readyState ===
+                        WebSocket.OPEN
+                ) {
 
-            const currentLobby =
-                lobbies.get(
-                    lobby.code
-                );
-
-            if (!currentLobby) {
-                return;
-            }
-
-            const currentPlayer =
-                findPlayerById(
-                    currentLobby,
-                    player.player_id
-                );
-
-            if (!currentPlayer) {
-                return;
-            }
-
-            console.log(
-                "RECONNECT TIMEOUT:",
-                currentPlayer.name,
-                "| LOBBY:",
-                lobby.code
-            );
-
-            removePlayerFromLobby(
-                currentLobby,
-                currentPlayer
-            );
-
-            // Nếu người bị xóa là host
-            if (
-                currentLobby.host ===
-                currentPlayer.socket
-            ) {
-
-                currentLobby.host = null;
-            }
-
-            // Chọn host mới nếu cần
-            if (
-                !currentLobby.host ||
-                !currentLobby.players.some(
-                    p =>
-                        p.socket ===
-                        currentLobby.host
-                )
-            ) {
-
-                const newHost =
-                    currentLobby.players.find(
-                        p =>
-                            p.role ===
-                            "PLAYER" &&
-                            p.socket &&
-                            p.socket.readyState ===
-                            WebSocket.OPEN
-                    );
-
-                if (newHost) {
-
-                    setHost(
-                        currentLobby,
-                        newHost
-                    );
+                    return;
                 }
-            }
 
-            if (
-                currentLobby.players.length ===
-                0
-            ) {
+                const currentLobby =
+                    lobbies.get(
+                        lobby.code
+                    );
 
-                lobbies.delete(
-                    lobby.code
-                );
+                if (!currentLobby)
+                    return;
+
+                const currentPlayer =
+                    findPlayerById(
+                        currentLobby,
+                        player.player_id
+                    );
+
+                if (!currentPlayer)
+                    return;
 
                 console.log(
-                    "LOBBY DELETED:",
-                    lobby.code
+                    "RECONNECT TIMEOUT:",
+                    currentPlayer.name
                 );
 
-            } else {
+                const wasHost =
+                    currentPlayer.is_host;
+
+                removePlayerFromLobby(
+                    currentLobby,
+                    currentPlayer
+                );
+
+                if (wasHost) {
+
+                    currentLobby.host =
+                        null;
+                }
+
+                if (
+                    currentLobby.players.length ===
+                    0
+                ) {
+
+                    lobbies.delete(
+                        lobby.code
+                    );
+
+                    console.log(
+                        "LOBBY DELETED:",
+                        lobby.code
+                    );
+
+                    return;
+                }
+
+                // ==========================================
+                // CHOOSE NEW HOST
+                // ==========================================
+
+                if (!currentLobby.host) {
+
+                    const newHost =
+                        currentLobby.players.find(
+                            p =>
+                                p.role ===
+                                    "PLAYER" &&
+                                p.socket &&
+                                p.socket.readyState ===
+                                    WebSocket.OPEN
+                        );
+
+                    if (newHost) {
+
+                        setHost(
+                            currentLobby,
+                            newHost
+                        );
+                    }
+                }
 
                 broadcastLobby(
                     currentLobby,
                     lobby.code
                 );
-            }
 
-        }, RECONNECT_GRACE_TIME);
+            },
+            RECONNECT_GRACE_TIME
+        );
 }
 
 
@@ -458,38 +537,68 @@ function createLobby(
 
     const hostPlayer = {
 
-        player_id: playerId,
+        player_id:
+            playerId,
 
-        name: playerName,
+        name:
+            playerName,
 
-        socket: socket,
+        socket:
+            socket,
 
-        lobby_code: code,
+        lobby_code:
+            code,
 
-        role: "PLAYER",
+        role:
+            "PLAYER",
 
-        is_host: true,
+        is_host:
+            true,
 
-        ready: false,
+        ready:
+            false,
 
-        playing: false,
+        playing:
+            false,
 
-        disconnected_at: null,
+        disconnected_at:
+            null,
 
-        disconnect_timer: null
+        disconnect_timer:
+            null,
+
+        // ==========================================
+        // GAME STATE
+        // ==========================================
+
+        game_state: {
+
+            x: 0,
+            y: 0,
+
+            velocity_x: 0,
+            velocity_y: 0,
+
+            rotation: 0,
+
+            animation: ""
+        }
     };
 
     const lobby = {
 
-        code: code,
+        code:
+            code,
 
-        host: socket,
+        host:
+            socket,
 
         players: [
             hostPlayer
         ],
 
-        created_at: Date.now()
+        created_at:
+            Date.now()
     };
 
     lobbies.set(
@@ -497,7 +606,8 @@ function createLobby(
         lobby
     );
 
-    socket.lobbyCode = code;
+    socket.lobbyCode =
+        code;
 
     socket.playerName =
         playerName;
@@ -514,17 +624,24 @@ function createLobby(
     sendToSocket(
         socket,
         {
-            type: "lobby_created",
 
-            lobby_code: code,
+            type:
+                "lobby_created",
 
-            player_name: playerName,
+            lobby_code:
+                code,
 
-            player_id: playerId,
+            player_name:
+                playerName,
 
-            role: "PLAYER",
+            player_id:
+                playerId,
 
-            is_host: true
+            role:
+                "PLAYER",
+
+            is_host:
+                true
         }
     );
 
@@ -532,9 +649,7 @@ function createLobby(
         "LOBBY CREATED:",
         code,
         "| HOST:",
-        playerName,
-        "| ID:",
-        playerId
+        playerName
     );
 }
 
@@ -563,7 +678,6 @@ function joinLobby(
         return;
     }
 
-    // Không cho join nếu đang ở lobby khác
     if (socket.lobbyCode) {
 
         sendError(
@@ -589,7 +703,6 @@ function joinLobby(
         return;
     }
 
-    // Không cho trùng tên
     const existing =
         findPlayer(
             lobby,
@@ -612,25 +725,48 @@ function joinLobby(
 
     const newPlayer = {
 
-        player_id: playerId,
+        player_id:
+            playerId,
 
-        name: playerName,
+        name:
+            playerName,
 
-        socket: socket,
+        socket:
+            socket,
 
-        lobby_code: code,
+        lobby_code:
+            code,
 
-        role: "PLAYER",
+        role:
+            "PLAYER",
 
-        is_host: false,
+        is_host:
+            false,
 
-        ready: false,
+        ready:
+            false,
 
-        playing: false,
+        playing:
+            false,
 
-        disconnected_at: null,
+        disconnected_at:
+            null,
 
-        disconnect_timer: null
+        disconnect_timer:
+            null,
+
+        game_state: {
+
+            x: 0,
+            y: 0,
+
+            velocity_x: 0,
+            velocity_y: 0,
+
+            rotation: 0,
+
+            animation: ""
+        }
     };
 
     lobby.players.push(
@@ -652,51 +788,56 @@ function joinLobby(
     socket.isHost =
         false;
 
+    // ==========================================
+    // JOIN SUCCESS
+    // ==========================================
+
     sendToSocket(
         socket,
         {
-            type: "join_success",
 
-            lobby_code: code,
+            type:
+                "join_success",
 
-            player_id: playerId,
+            lobby_code:
+                code,
+
+            player_id:
+                playerId,
 
             players:
                 getPlayersList(lobby)
         }
     );
 
-    // Thông báo player mới
-    for (
-        const player of
-        lobby.players
-    ) {
+    // ==========================================
+    // PLAYER JOINED
+    // ==========================================
 
-        if (
-            player.player_id !==
-            playerId
-        ) {
+    broadcastToOthers(
+        lobby,
+        socket,
+        {
 
-            sendToSocket(
-                player.socket,
-                {
-                    type: "player_joined",
+            type:
+                "player_joined",
 
-                    lobby_code: code,
+            lobby_code:
+                code,
 
-                    player_name:
-                        playerName,
+            player_name:
+                playerName,
 
-                    player_id:
-                        playerId,
+            player_id:
+                playerId,
 
-                    role: "PLAYER",
+            role:
+                "PLAYER",
 
-                    is_host: false
-                }
-            );
+            is_host:
+                false
         }
-    }
+    );
 
     broadcastLobby(
         lobby,
@@ -713,7 +854,7 @@ function joinLobby(
 
 
 // ==================================================
-// RECONNECT LOBBY
+// RECONNECT
 // ==================================================
 
 function reconnectLobby(
@@ -754,7 +895,6 @@ function reconnectLobby(
         return;
     }
 
-    // Nếu tên không khớp thì từ chối
     if (
         player.name !==
         playerName
@@ -769,7 +909,6 @@ function reconnectLobby(
         return;
     }
 
-    // Hủy timer xóa
     if (
         player.disconnect_timer
     ) {
@@ -782,7 +921,6 @@ function reconnectLobby(
             null;
     }
 
-    // Gắn socket mới
     player.socket =
         socket;
 
@@ -804,7 +942,6 @@ function reconnectLobby(
     socket.isHost =
         player.is_host;
 
-    // Nếu người reconnect là host
     if (player.is_host) {
 
         lobby.host =
@@ -814,9 +951,12 @@ function reconnectLobby(
     sendToSocket(
         socket,
         {
-            type: "reconnect_success",
 
-            lobby_code: code,
+            type:
+                "reconnect_success",
+
+            lobby_code:
+                code,
 
             player_id:
                 player.player_id,
@@ -911,12 +1051,13 @@ function changeRole(
         return;
     }
 
-    // ==================================================
-    // HOST ĐỔI ROLE NGƯỜI KHÁC
-    // ==================================================
+    // ==========================================
+    // HOST CHANGES OTHER PLAYER
+    // ==========================================
 
     if (
-        socket === lobby.host
+        socket ===
+        lobby.host
     ) {
 
         const targetPlayer =
@@ -938,8 +1079,9 @@ function changeRole(
 
         if (
             targetPlayer.player_id ===
-            requestingPlayer.player_id &&
-            newRole === "SPECTATOR"
+                requestingPlayer.player_id &&
+            newRole ===
+                "SPECTATOR"
         ) {
 
             sendError(
@@ -953,9 +1095,10 @@ function changeRole(
 
         if (
             newRole === "PLAYER" &&
-            targetPlayer.role === "SPECTATOR" &&
+            targetPlayer.role ===
+                "SPECTATOR" &&
             countPlayers(lobby) >=
-            MAX_PLAYERS
+                MAX_PLAYERS
         ) {
 
             sendError(
@@ -983,6 +1126,7 @@ function changeRole(
         }
 
         if (targetPlayer.socket) {
+
             targetPlayer.socket.role =
                 newRole;
         }
@@ -995,9 +1139,9 @@ function changeRole(
         return;
     }
 
-    // ==================================================
-    // PLAYER TỰ ĐỔI ROLE
-    // ==================================================
+    // ==========================================
+    // PLAYER CHANGES SELF
+    // ==========================================
 
     if (
         data.player_name !==
@@ -1016,9 +1160,9 @@ function changeRole(
     if (
         newRole === "PLAYER" &&
         requestingPlayer.role ===
-        "SPECTATOR" &&
+            "SPECTATOR" &&
         countPlayers(lobby) >=
-        MAX_PLAYERS
+            MAX_PLAYERS
     ) {
 
         sendError(
@@ -1079,7 +1223,8 @@ function startGame(socket) {
     }
 
     if (
-        lobby.host !== socket
+        lobby.host !==
+        socket
     ) {
 
         sendError(
@@ -1092,7 +1237,8 @@ function startGame(socket) {
     }
 
     if (
-        countPlayers(lobby) <= 0
+        countPlayers(lobby) <=
+        0
     ) {
 
         sendError(
@@ -1104,7 +1250,6 @@ function startGame(socket) {
         return;
     }
 
-    // Tất cả PLAYER bắt đầu game
     for (
         const player of
         lobby.players
@@ -1138,9 +1283,11 @@ function startGame(socket) {
 
     const message = {
 
-        type: "start_game",
+        type:
+            "start_game",
 
-        lobby_code: code,
+        lobby_code:
+            code,
 
         players:
             getPlayersList(lobby)
@@ -1256,18 +1403,158 @@ function gameStatus(
             false;
     }
 
-    console.log(
-        "GAME STATUS:",
-        player.name,
-        "->",
-        player.playing
-            ? "PLAYING"
-            : "WAITING"
-    );
-
     broadcastLobby(
         lobby,
         code
+    );
+}
+
+
+// ==================================================
+// PLAYER STATE
+// ==================================================
+//
+// Đây là phần mới.
+//
+// Player gửi:
+// x / y
+// velocity
+// rotation
+// animation
+//
+// Server gửi trạng thái đó
+// cho những player khác.
+// ==================================================
+
+function playerState(
+    socket,
+    data
+) {
+
+    const lobby =
+        lobbies.get(
+            socket.lobbyCode
+        );
+
+    if (!lobby)
+        return;
+
+    const player =
+        findPlayerBySocket(
+            lobby,
+            socket
+        );
+
+    if (!player)
+        return;
+
+    if (
+        player.role !==
+        "PLAYER"
+    ) {
+
+        return;
+    }
+
+    if (
+        !player.playing
+    ) {
+
+        return;
+    }
+
+    const x =
+        Number(data.x);
+
+    const y =
+        Number(data.y);
+
+    const velocityX =
+        Number(data.velocity_x);
+
+    const velocityY =
+        Number(data.velocity_y);
+
+    const rotation =
+        Number(data.rotation);
+
+    if (
+        !Number.isFinite(x) ||
+        !Number.isFinite(y)
+    ) {
+
+        return;
+    }
+
+    player.game_state = {
+
+        x: x,
+
+        y: y,
+
+        velocity_x:
+            Number.isFinite(
+                velocityX
+            )
+                ? velocityX
+                : 0,
+
+        velocity_y:
+            Number.isFinite(
+                velocityY
+            )
+                ? velocityY
+                : 0,
+
+        rotation:
+            Number.isFinite(
+                rotation
+            )
+                ? rotation
+                : 0,
+
+        animation:
+            String(
+                data.animation || ""
+            )
+    };
+
+    // ==========================================
+    // GỬI CHO PLAYER KHÁC
+    // ==========================================
+
+    broadcastToOthers(
+        lobby,
+        socket,
+        {
+
+            type:
+                "player_state",
+
+            player_id:
+                player.player_id,
+
+            player_name:
+                player.name,
+
+            x:
+                player.game_state.x,
+
+            y:
+                player.game_state.y,
+
+            velocity_x:
+                player.game_state.velocity_x,
+
+            velocity_y:
+                player.game_state.velocity_y,
+
+            rotation:
+                player.game_state.rotation,
+
+            animation:
+                player.game_state.animation
+        }
     );
 }
 
@@ -1381,7 +1668,8 @@ function kickPlayer(
     }
 
     if (
-        lobby.host !== socket
+        lobby.host !==
+        socket
     ) {
 
         sendError(
@@ -1435,6 +1723,7 @@ function kickPlayer(
     sendToSocket(
         targetSocket,
         {
+
             type:
                 "kicked_from_lobby",
 
@@ -1450,6 +1739,7 @@ function kickPlayer(
     sendToSocket(
         socket,
         {
+
             type:
                 "kick_success",
 
@@ -1524,13 +1814,14 @@ wss.on(
                         !data ||
                         !data.type
                     ) {
+
                         return;
                     }
 
 
-                    // ==================================================
+                    // ==========================================
                     // CREATE
-                    // ==================================================
+                    // ==========================================
 
                     if (
                         data.type ===
@@ -1565,9 +1856,9 @@ wss.on(
                     }
 
 
-                    // ==================================================
+                    // ==========================================
                     // JOIN
-                    // ==================================================
+                    // ==========================================
 
                     if (
                         data.type ===
@@ -1592,8 +1883,8 @@ wss.on(
                                 data.lobby_code ||
                                 ""
                             )
-                            .trim()
-                            .toUpperCase();
+                                .trim()
+                                .toUpperCase();
 
                         const playerName =
                             String(
@@ -1611,9 +1902,9 @@ wss.on(
                     }
 
 
-                    // ==================================================
+                    // ==========================================
                     // RECONNECT
-                    // ==================================================
+                    // ==========================================
 
                     if (
                         data.type ===
@@ -1625,8 +1916,8 @@ wss.on(
                                 data.lobby_code ||
                                 ""
                             )
-                            .trim()
-                            .toUpperCase();
+                                .trim()
+                                .toUpperCase();
 
                         const playerId =
                             String(
@@ -1666,9 +1957,9 @@ wss.on(
                     }
 
 
-                    // ==================================================
+                    // ==========================================
                     // CHANGE ROLE
-                    // ==================================================
+                    // ==========================================
 
                     if (
                         data.type ===
@@ -1684,9 +1975,9 @@ wss.on(
                     }
 
 
-                    // ==================================================
+                    // ==========================================
                     // START GAME
-                    // ==================================================
+                    // ==========================================
 
                     if (
                         data.type ===
@@ -1701,9 +1992,9 @@ wss.on(
                     }
 
 
-                    // ==================================================
+                    // ==========================================
                     // GAME STATUS
-                    // ==================================================
+                    // ==========================================
 
                     if (
                         data.type ===
@@ -1719,9 +2010,27 @@ wss.on(
                     }
 
 
-                    // ==================================================
+                    // ==========================================
+                    // PLAYER STATE
+                    // ==========================================
+
+                    if (
+                        data.type ===
+                        "player_state"
+                    ) {
+
+                        playerState(
+                            socket,
+                            data
+                        );
+
+                        return;
+                    }
+
+
+                    // ==========================================
                     // READY
-                    // ==================================================
+                    // ==========================================
 
                     if (
                         data.type ===
@@ -1737,9 +2046,9 @@ wss.on(
                     }
 
 
-                    // ==================================================
+                    // ==========================================
                     // KICK
-                    // ==================================================
+                    // ==========================================
 
                     if (
                         data.type ===
@@ -1755,12 +2064,12 @@ wss.on(
                     }
 
 
-                    // ==================================================
+                    // ==========================================
                     // UNKNOWN
-                    // ==================================================
+                    // ==========================================
 
                     console.log(
-                        "UNKNOWN MESSAGE TYPE:",
+                        "UNKNOWN MESSAGE:",
                         data.type
                     );
 
@@ -1791,16 +2100,14 @@ wss.on(
                 const code =
                     socket.lobbyCode;
 
-                if (!code) {
+                if (!code)
                     return;
-                }
 
                 const lobby =
                     lobbies.get(code);
 
-                if (!lobby) {
+                if (!lobby)
                     return;
-                }
 
                 const player =
                     findPlayerBySocket(
@@ -1808,65 +2115,57 @@ wss.on(
                         socket
                     );
 
-                if (!player) {
+                if (!player)
                     return;
-                }
 
-
-                // ==================================================
-                // QUAN TRỌNG:
-                // KHÔNG XÓA PLAYER NGAY
-                // ==================================================
+                // ==========================================
+                // NGẮT SOCKET
+                // ==========================================
 
                 player.socket =
                     null;
 
-                // Nếu là host
-                if (
-                    lobby.host ===
-                    socket
-                ) {
+                const wasHost =
+                    player.is_host;
+
+                if (wasHost) {
 
                     lobby.host =
                         null;
 
                     player.is_host =
                         false;
-
-                    // Tạm thời giữ lobby.
-                    // Chỉ chuyển host khi hết grace
-                    // hoặc khi người khác reconnect.
                 }
 
+                // ==========================================
+                // GIỮ PLAYER 5 PHÚT
+                // ==========================================
 
-                // Giữ player trong lobby
                 schedulePlayerRemoval(
                     lobby,
                     player
                 );
 
-
-                // ==================================================
-                // NẾU HOST MẤT KẾT NỐI
-                // ==================================================
+                // ==========================================
+                // CHỌN HOST MỚI NGAY
+                // ==========================================
 
                 if (
-                    player.is_host ===
-                    false &&
+                    wasHost &&
                     lobby.host ===
-                    null
+                        null
                 ) {
 
                     const newHost =
                         lobby.players.find(
                             p =>
                                 p.player_id !==
-                                player.player_id &&
+                                    player.player_id &&
                                 p.role ===
-                                "PLAYER" &&
+                                    "PLAYER" &&
                                 p.socket &&
                                 p.socket.readyState ===
-                                WebSocket.OPEN
+                                    WebSocket.OPEN
                         );
 
                     if (newHost) {
@@ -1875,28 +2174,13 @@ wss.on(
                             lobby,
                             newHost
                         );
-
-                        broadcastLobby(
-                            lobby,
-                            code
-                        );
-
-                        console.log(
-                            "HOST DISCONNECTED.",
-                            "NEW HOST:",
-                            newHost.name,
-                            "| LOBBY:",
-                            code
-                        );
                     }
-
-                } else {
-
-                    broadcastLobby(
-                        lobby,
-                        code
-                    );
                 }
+
+                broadcastLobby(
+                    lobby,
+                    code
+                );
 
                 console.log(
                     "PLAYER KEPT FOR RECONNECT:",
